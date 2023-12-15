@@ -1,146 +1,122 @@
-import { Component } from "react";
-import { Searchbar } from "./Searchbar/Searchbar"
-import { fetchImages, onFetchError } from "Pixbay/api";
-import { ImageGallery } from "./ImageGallery/ImageGallery";
-import { Button } from "./Button/Button";
-import { Loader } from "./Loader/Loader";
-import Notiflix from "notiflix";
-import { Modal } from "./Modal/Modal";
-
+import { Searchbar } from './Searchbar/Searchbar';
+import { fetchImages, onFetchError } from 'Pixbay/api';
+import { ImageGallery } from './ImageGallery/ImageGallery';
+import { Button } from './Button/Button';
+import { Loader } from './Loader/Loader';
+import Notiflix from 'notiflix';
+import { Modal } from './Modal/Modal';
+import { useEffect, useState } from 'react';
 
 const perPage = 12;
 
-export class App extends Component {
-  state = {
-    q: '',
-    images: [],
-    page: 1,
-    loading: false,
-    btnLoadMore: false,
-    error: null,
-    modal:{
-       isShowModal: false,
-       modalImage: null,
-    }
-  }
+export const App = () => {
+  const [q, setQ] = useState('');
+  const [images, setImage] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [btnLoadMore, setBtnLoadMore] = useState(false);
+  const [isShowModal, setIsShowModal] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
 
-  componentDidMount() {
+  useEffect(() => {
     fetchImages();
-  }
-  
+  }, []);
 
-  getImages = async () => {
-    const { q, page } = this.state;
-    try {
+  useEffect(() => {
+    if (!q) {
+      return;
+    }
+    const getImages = async () => {
+      try {
+        setLoading(true);
+        setBtnLoadMore(false);
 
-      this.setState({ loading: true, btnLoadMore: false,});
+        const images = await fetchImages(q, page);
+        console.log(images);
 
-      const images = await fetchImages(q, page)
-      console.log(images)
+        const arrPhotos = images.hits.map(
+          ({ id, webformatURL, largeImageURL, tags }) => ({
+            id,
+            webformatURL,
+            largeImageURL,
+            tags,
+          })
+        );
+        const totalPage = Math.ceil(images.totalHits / perPage);
+        console.log(totalPage);
 
-      const arrPhotos = images.hits.map(({ id, webformatURL,largeImageURL, tags }) => (
-          { id, webformatURL,largeImageURL , tags}
-      ));
-      const totalPage = Math.ceil(images.totalHits / perPage)
-      console.log(totalPage)
+        if (images.totalHits === 0) {
+          Notiflix.Notify.failure(
+            'Sorry, there are no images matching your search query. Please try again.!'
+          );
+          setBtnLoadMore(false);
+          return;
+        }
 
-      if (images.totalHits === 0) {
-        Notiflix.Notify.failure('Sorry, there are no images matching your search query. Please try again.!')
-        this.setState({ btnLoadMore: false });
-        return;
-      }
+        setImage(prev => [...prev, ...arrPhotos]);
 
-      if (q === '') {
-        Notiflix.Notify.info('Enter your request, please!')
-        this.setState({ btnLoadMore: false });
-        return;
-      }
-
-        this.setState(prevState => ({
-          images:[ ...prevState.images , ...arrPhotos],
-        }))
-      
-       if (totalPage > page) {
-        this.setState({btnLoadMore: true})
-      } else {
-        Notiflix.Notify.info("We're sorry, but you've reached the end of search results"); 
-        this.setState({ btnLoadMore: false });
-      }
-       
+        if (totalPage > page) {
+          setBtnLoadMore(true);
+        } else {
+          Notiflix.Notify.info(
+            "We're sorry, but you've reached the end of search results"
+          );
+          setBtnLoadMore(false);
+        }
       } catch (error) {
-      onFetchError();
-      
+        onFetchError();
       } finally {
-      this.setState({ loading: false });
-      
+        setLoading(false);
       }
-    }
-  
-  componentDidUpdate(_, prevState) {
-    const { q, page } = this.state;
-    
-    if (prevState.q !== q || prevState.page !== page) {
-      this.getImages()
-    }
-  }
+    };
+    getImages(q, page);
+  }, [page, q]);
 
-  onSubmitSearchBar = newQ => {
-    this.setState({
-      q: newQ,
-      images: [],
-      page: 1,
-      error: null,
-    })
-   
-      if (this.state.q === newQ) {
-        Notiflix.Notify.info('Enter new request, please!')
-        this.setState({ btnLoadMore: false });
-        return;
+  const onSubmitSearchBar = evt => {
+    evt.preventDefault();
+    const form = evt.currentTarget;
+    const searchValue = form.search.value;
+
+    if (searchValue === '') {
+      Notiflix.Notify.info('Enter your request, please!');
+      setBtnLoadMore(false);
+      return;
     }
-    
 
-  }
-
-  onLoadMore = () => {
-    this.setState(prevState => {
-      return {
-        page: prevState.page + 1,
-      }
-    })
-  }
-
-  
-
-  onOpenModal = (modalData) => {
-    this.setState({
-      modal:{
-       isShowModal: true,
-       modalImage: modalData,
+    if (searchValue === q) {
+      Notiflix.Notify.info('Enter new request, please!');
+      setBtnLoadMore(false);
+      return;
     }
-    })
-  }
- 
-  onCloseModal = () => {
-    this.setState({
-      modal:{
-       isShowModal: false,
-       modalImage: null,
-    }
-    })
-  }
-  
-  render() {
-    const { images, btnLoadMore, loading, modal:{modalImage}} = this.state;
-    return (
-      <>
-        <Searchbar onSubmit={this.onSubmitSearchBar} />
-        {loading && <Loader />}
-        <ImageGallery images={images} onOpenModal={ this.onOpenModal} />
-        {btnLoadMore && <Button onLoadMore={this.onLoadMore} />}
-        {this.state.modal.isShowModal &&
-        <Modal modalImage={modalImage}
-               onCloseModal={this.onCloseModal} />}
-  
-    </>)
-}
+
+    setQ(searchValue);
+    setImage([]);
+    setPage(1);
+  };
+
+  const onLoadMore = () => {
+    setPage(prev => prev.page + 1);
+  };
+
+  const onOpenModal = modalData => {
+    setIsShowModal(true);
+    setModalImage(modalData);
+  };
+
+  const onCloseModal = () => {
+    setIsShowModal(false);
+    setModalImage(null);
+  };
+
+  return (
+    <>
+      <Searchbar onSubmitSearchBar={onSubmitSearchBar} />
+      {loading && <Loader />}
+      <ImageGallery images={images} onOpenModal={onOpenModal} />
+      {btnLoadMore && <Button onLoadMore={onLoadMore} />}
+      {isShowModal && (
+        <Modal modalImage={modalImage} onCloseModal={onCloseModal} />
+      )}
+    </>
+  );
 };
