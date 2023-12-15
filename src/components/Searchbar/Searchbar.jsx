@@ -1,4 +1,3 @@
-//import { useState } from 'react';
 import css from './Searchbar.module.css';
 import { Svg } from 'components/Svg/Svg';
 
