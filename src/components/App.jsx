@@ -95,7 +95,7 @@ export const App = () => {
   };
 
   const onLoadMore = () => {
-    setPage(prev => prev.page + 1);
+    setPage(prevPage => prevPage + 1);
   };
 
   const onOpenModal = modalData => {
